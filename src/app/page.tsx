@@ -11,6 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import MarkdownPreview from '@uiw/react-markdown-preview';
+import '@uiw/react-markdown-preview/markdown.css';
+import 'katex/dist/katex.min.css';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { 
   FileText, 
   Link, 
@@ -255,8 +259,23 @@ export default function QuickPackApp() {
               <CardContent>
                 <MarkdownPreview 
                   source={generatedContent}
-                  style={{ backgroundColor: 'transparent', color: '#e2e8f0' }}
-                  wrapperElement={{ "data-color-mode": "dark" }}
+                  data-color-mode="dark"
+                  rehypePlugins={[[rehypeKatex, { 
+                    throwOnError: false, 
+                    errorColor: '#ff6b6b',
+                    strict: false 
+                  }]]}
+                  remarkPlugins={[remarkMath]}
+                  wrapperElement={{
+                    'data-color-mode': 'dark'
+                  }}
+                  style={{ 
+                    backgroundColor: 'transparent', 
+                    color: '#e2e8f0',
+                    padding: '20px',
+                    lineHeight: '1.6',
+                    fontSize: '16px'
+                  }}
                 />
               </CardContent>
             </Card>
