@@ -10,8 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import ReactMarkdown from 'react-markdown';
-import remarkMath from 'remark-math';
+import MarkdownPreview from '@uiw/react-markdown-preview';
 import { 
   FileText, 
   Link, 
@@ -50,27 +49,15 @@ export default function QuickPackApp() {
     setGeneratedContent("");
 
     try {
-      const fileData = await Promise.all(
-        files.map(async (file) => {
-          const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve((reader.result as string).split(',')[1]);
-            reader.onerror = (error) => reject(error);
-          });
-          return { base64, mimeType: file.type };
-        })
-      );
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+      formData.append('pageLimit', pageLimit);
 
       const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          files: fileData,
-          pageLimit,
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -266,11 +253,11 @@ export default function QuickPackApp() {
                 <CardTitle className="text-slate-100">Generated Coursepack</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="prose prose-invert max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkMath]}>
-                    {generatedContent}
-                  </ReactMarkdown>
-                </div>
+                <MarkdownPreview 
+                  source={generatedContent}
+                  style={{ backgroundColor: 'transparent', color: '#e2e8f0' }}
+                  wrapperElement={{ "data-color-mode": "dark" }}
+                />
               </CardContent>
             </Card>
           </div>

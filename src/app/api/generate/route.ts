@@ -1,37 +1,29 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI, Part } from '@google/generative-ai';
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "YOUR_API_KEY");
-
-function fileToGenerativePart(base64: string, mimeType: string): Part {
-  return {
-    inlineData: {
-      data: base64,
-      mimeType
-    },
-  };
-}
+import pdf from 'pdf-parse';
 
 export async function POST(req: Request) {
   try {
-    const { files, pageLimit } = await req.json();
+    const formData = await req.formData();
+    const files = formData.getAll('files') as File[];
+    const pageLimit = formData.get('pageLimit') as string;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash-lite",
-      systemInstruction: "You are a helpful assistant that creates detailed, structured outlines and specifications based on the provided content. Do not add any commentary or introductory text.",
-    });
+    let combinedText = "";
 
-    const imageParts = files.map((file: { base64: string, mimeType: string }) =>
-      fileToGenerativePart(file.base64, file.mimeType)
-    );
+    for (const file of files) {
+      if (file.type === 'application/pdf') {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const data = await pdf(buffer);
+        combinedText += data.text;
+      } else {
+        combinedText += await file.text();
+      }
+    }
 
-    const prompt = `
-      Based on the following files, generate a detailed spec of all the topics that must be generated.
-    `;
-
-    const result = await model.generateContent([prompt, ...imageParts]);
-    const response = await result.response;
-    const spec = response.text();
+    // With Qwen 3 235B having 131K context, we can handle much larger documents
+    const maxInputLength = 100000; // Conservative limit to leave room for system prompt and response
+    if (combinedText.length > maxInputLength) {
+      combinedText = combinedText.substring(0, maxInputLength) + "\n\n[Text truncated due to length limits]";
+    }
 
     const cerebrasResponse = await fetch("https://api.cerebras.ai/v1/chat/completions", {
       method: 'POST',
@@ -40,17 +32,17 @@ export async function POST(req: Request) {
         'Authorization': `Bearer ${process.env.CEREBRAS_API_KEY || "YOUR_API_KEY"}`,
       },
       body: JSON.stringify({
-        model: "qwen-3-32b",
+        model: "qwen-3-235b-a22b-instruct-2507",
         messages: [
           {
             role: "system",
-            content: "You are a helpful assistant that generates rich markdown/latex documents based on a provided specification. Do not include any introductory text, commentary, or any other text outside of the final markdown document."
+            content: "You are a helpful assistant that generates rich markdown/latex documents based on the provided text. Do not include any introductory text, commentary, or any other text outside of the final markdown document."
           },
           {
             role: "user",
             content: `
-              Based on the following spec, generate a ${pageLimit}-page explainer in rich markdown/latex format.
-              Spec: ${spec}
+              Based on the following text, generate a ${pageLimit}-page explainer in rich markdown/latex format.
+              Text: ${combinedText}
             `
           }
         ]
@@ -58,14 +50,15 @@ export async function POST(req: Request) {
     });
 
     if (!cerebrasResponse.ok) {
-      throw new Error('Failed to generate content from Cerebras');
+      const errorText = await cerebrasResponse.text();
+      console.error('Cerebras API Error:', cerebrasResponse.status, errorText);
+      throw new Error(`Failed to generate content from Cerebras: ${cerebrasResponse.status} - ${errorText}`);
     }
 
     const cerebrasData = await cerebrasResponse.json();
     const content = cerebrasData.choices[0].message.content;
 
     return NextResponse.json({
-      spec: spec,
       content: content,
     });
   } catch (error) {
