@@ -35,12 +35,37 @@ export default function QuickPackApp() {
   const [urlInput, setUrlInput] = useState("");
   const [youtubeInput, setYoutubeInput] = useState("");
   const [pageLimit, setPageLimit] = useState("25");
+  const [generatedContent, setGeneratedContent] = useState("");
 
   const handleGenerate = async () => {
     setIsGenerating(true);
-    // Simulate processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsGenerating(false);
+    setGeneratedContent("");
+
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          textInput,
+          urlInput,
+          youtubeInput,
+          pageLimit,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate content');
+      }
+
+      const data = await response.json();
+      setGeneratedContent(data.content);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -278,6 +303,21 @@ export default function QuickPackApp() {
             </Card>
           </div>
         </div>
+
+        {generatedContent && (
+          <div className="mt-8">
+            <Card className="bg-card border-border backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-slate-100">Generated Coursepack</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="prose prose-invert max-w-none">
+                  {generatedContent}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
