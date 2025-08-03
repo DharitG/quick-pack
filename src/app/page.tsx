@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
 import { 
   FileText, 
   Link, 
@@ -28,29 +30,45 @@ import {
 } from "lucide-react";
 
 export default function QuickPackApp() {
-  const [activeTab, setActiveTab] = useState("text");
   const [outputTab, setOutputTab] = useState("outline");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [pageLimit, setPageLimit] = useState("25");
+  const [generatedContent, setGeneratedContent] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [textInput, setTextInput] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [youtubeInput, setYoutubeInput] = useState("");
-  const [pageLimit, setPageLimit] = useState("25");
-  const [generatedContent, setGeneratedContent] = useState("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles(Array.from(e.target.files));
+    }
+  };
 
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGeneratedContent("");
 
     try {
+      const fileData = await Promise.all(
+        files.map(async (file) => {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve((reader.result as string).split(',')[1]);
+            reader.onerror = (error) => reject(error);
+          });
+          return { base64, mimeType: file.type };
+        })
+      );
+
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          textInput,
-          urlInput,
-          youtubeInput,
+          files: fileData,
           pageLimit,
         }),
       });
@@ -91,93 +109,30 @@ export default function QuickPackApp() {
               <CardHeader>
                 <CardTitle className="text-slate-100">Content Input</CardTitle>
                 <CardDescription className="font-berk text-slate-400">
-                  Choose your input method and provide content
+                  Upload your files here
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <TabsList className="grid w-full grid-cols-4 bg-secondary">
-                    <TabsTrigger 
-                      value="text" 
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      Text
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="url" 
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                    >
-                      <Link className="w-4 h-4 mr-2" />
-                      URL
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="pdf" 
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                    >
-                      <FileImage className="w-4 h-4 mr-2" />
-                      PDF
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="youtube" 
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                    >
-                      <Youtube className="w-4 h-4 mr-2" />
-                      YouTube
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="text" className="space-y-4">
-                    <Textarea
-                      placeholder="Paste your lecture notes, article text, or any content here..."
-                      className="min-h-[200px] bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-                      value={textInput}
-                      onChange={(e) => setTextInput(e.target.value)}
+                <label htmlFor="file-upload" className="cursor-pointer">
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                    <FileImage className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground mb-4">Drag & drop files here, or click to select files</p>
+                    <Input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      id="file-upload"
+                      onChange={handleFileChange}
                     />
-                  </TabsContent>
-
-                  <TabsContent value="url" className="space-y-4">
-                    <div className="space-y-3">
-                      <Input
-                        type="url"
-                        placeholder="Enter URL (e.g., https://example.com/article)"
-                        className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-                        value={urlInput}
-                        onChange={(e) => setUrlInput(e.target.value)}
-                      />
-                      <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                        <Search className="w-4 h-4 mr-2" />
-                        Fetch Content
-                      </Button>
+                    <div className="mt-4">
+                      {files.map((file, i) => (
+                        <div key={i} className="text-sm text-muted-foreground">
+                          {file.name}
+                        </div>
+                      ))}
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="pdf" className="space-y-4">
-                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                      <FileImage className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                      <p className="text-muted-foreground mb-4">Upload PDF file</p>
-                      <Button variant="outline" className="border-border text-foreground hover:bg-secondary">
-                        Choose File
-                      </Button>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="youtube" className="space-y-4">
-                    <div className="space-y-3">
-                      <Input
-                        type="text"
-                        placeholder="Enter YouTube URL or Video ID"
-                        className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-                        value={youtubeInput}
-                        onChange={(e) => setYoutubeInput(e.target.value)}
-                      />
-                      <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                        <Youtube className="w-4 h-4 mr-2" />
-                        Get Transcript
-                      </Button>
-                    </div>
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                </label>
               </CardContent>
             </Card>
 
@@ -312,7 +267,9 @@ export default function QuickPackApp() {
               </CardHeader>
               <CardContent>
                 <div className="prose prose-invert max-w-none">
-                  {generatedContent}
+                  <ReactMarkdown remarkPlugins={[remarkMath]}>
+                    {generatedContent}
+                  </ReactMarkdown>
                 </div>
               </CardContent>
             </Card>
