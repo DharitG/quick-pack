@@ -4,6 +4,8 @@
 
 ##  Special Thanks to all AI tools and Vibe coding startups for bringing this incredible power of creation to everyone. 
 
+##  Quick Pack's purpose is to learn a lot of concepts in a short amount of time. It is not meant for cheating or plagiarism. 
+
 Quick Pack is an AI-powered educational platform that instantly converts PDFs, documents, and text into comprehensive coursepacks and interactive study materials. Powered by Cerebras AI for ultra-fast generation.
 
 ![Quick Pack Demo](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
