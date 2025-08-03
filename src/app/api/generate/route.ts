@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.CEREBRAS_API_KEY || "YOUR_API_KEY"}`,
+        'Authorization': `Bearer ${process.env.CEREBRAS_API_KEY}`,
       },
       body: JSON.stringify({
         model: "qwen-3-235b-a22b-instruct-2507",
